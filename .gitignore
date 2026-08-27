@@ -16,3 +16,9 @@ pubspec.lock
 .idea/
 .vscode/
 *.iml
+
+# Cloud Functions
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/.env.*
