@@ -1,0 +1,18 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+pubspec.lock
+
+# Firebase / credenciales — nunca commitear con datos reales
+**/firebase_options.dart
+.firebase/
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.iml

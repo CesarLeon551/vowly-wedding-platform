@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Implementa la tabla de roles/permisos de la Fase 1.
+// Todo cuelga de weddings/{weddingId}, así que el rol se resuelve
+// UNA vez por request leyendo members/{uid} de esa misma boda.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membership(weddingId) {
+      return get(/databases/$(database)/documents/weddings/$(weddingId)/members/$(request.auth.uid));
+    }
+
+    function isCouple(weddingId) {
+      return isSignedIn() &&
+        membership(weddingId).data.role == 'novio';
+    }
+
+    function isCollaboratorWithAccess(weddingId, module) {
+      return isSignedIn() &&
+        membership(weddingId).data.role == 'colaborador' &&
+        membership(weddingId).data.permissions[module] == true;
+    }
+
+    function hasAdminAccess(weddingId, module) {
+      return isCouple(weddingId) || isCollaboratorWithAccess(weddingId, module);
+    }
+
+    match /weddings/{weddingId} {
+
+      // El documento raíz de la boda: solo miembros (cualquier rol) lo leen.
+      allow read: if isSignedIn();
+      allow write: if isCouple(weddingId);
+
+      match /members/{uid} {
+        // Cada quien puede leer su propia membresía (el router la necesita).
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow read, write: if isCouple(weddingId);
+      }
+
+      match /budgetCategories/{docId} { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
+      match /expenses/{docId}         { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
+
+      match /savings/{docId} { allow read, write: if hasAdminAccess(weddingId, 'savings'); }
+
+      match /guests/{guestId} {
+        allow read, write: if hasAdminAccess(weddingId, 'guests');
+        // RSVP público: cualquiera con el link puede ACTUALIZAR (no leer
+        // la lista completa) su propio registro. Se resuelve mejor con
+        // una Cloud Function que valide un token de invitación — placeholder
+        // por ahora, revisar antes de Fase 6/9.
+      }
+
+      match /vendors/{docId}  { allow read, write: if hasAdminAccess(weddingId, 'vendors'); }
+      match /tasks/{docId}    { allow read, write: if hasAdminAccess(weddingId, 'tasks'); }
+      match /tables/{docId}   { allow read, write: if hasAdminAccess(weddingId, 'tables'); }
+      match /timelineEvents/{docId} { allow read, write: if hasAdminAccess(weddingId, 'timeline'); }
+
+      match /songs/{songId} {
+        // Cualquier miembro (incluido invitado) puede leer, agregar y votar.
+        allow read, create: if isSignedIn();
+        // Aprobar/rechazar/marcar solo novios o colaborador con acceso a música.
+        allow update, delete: if hasAdminAccess(weddingId, 'music') ||
+          (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['votes']));
+
+        match /votes/{uid} {
+          allow read: if isSignedIn();
+          allow write: if isSignedIn() && request.auth.uid == uid;
+        }
+      }
+
+      match /ourStory/{docId} {
+        // Playlist privada de los novios: nadie más la ve.
+        allow read, write: if isCouple(weddingId);
+      }
+
+      match /photos/{docId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow delete: if isCouple(weddingId);
+      }
+
+      match /documents/{docId} { allow read, write: if hasAdminAccess(weddingId, 'documents'); }
+
+      match /notifications/{docId} {
+        allow read: if isSignedIn();
+        allow write: if isCouple(weddingId);
+      }
+    }
+  }
+}
