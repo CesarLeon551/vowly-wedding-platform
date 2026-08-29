@@ -17,8 +17,7 @@ pubspec.lock
 .vscode/
 *.iml
 
-# Cloud Functions
-functions/node_modules/
-functions/lib/
-functions/.env
-functions/.env.*
+# Cloudflare Worker
+cloudflare-worker/node_modules/
+cloudflare-worker/.wrangler/
+cloudflare-worker/.dev.vars

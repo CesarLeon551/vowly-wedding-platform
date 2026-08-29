@@ -30,16 +30,55 @@ service cloud.firestore {
       return isCouple(weddingId) || isCollaboratorWithAccess(weddingId, module);
     }
 
+    // Índice plano uid -> weddingId, usado por AuthRepositoryImpl para
+    // resolver la sesión sin collectionGroup query. Cada quien solo
+    // lee/crea su propio documento.
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      // Sin update/delete: una vez asociado a una boda no se reasigna
+      // desde el cliente (soporte multi-boda queda para el SaaS futuro).
+    }
+
     match /weddings/{weddingId} {
 
       // El documento raíz de la boda: solo miembros (cualquier rol) lo leen.
       allow read: if isSignedIn();
-      allow write: if isCouple(weddingId);
+      // Crear la boda: cualquier usuario autenticado puede crear UNA
+      // boda donde él mismo sea el único integrante de coupleUids.
+      // (Agregar al segundo novio es un paso posterior fuera de este MVP.)
+      allow create: if isSignedIn() &&
+        request.resource.data.coupleUids == [request.auth.uid];
+      allow update, delete: if isCouple(weddingId);
 
       match /members/{uid} {
         // Cada quien puede leer su propia membresía (el router la necesita).
         allow read: if isSignedIn() && request.auth.uid == uid;
         allow read, write: if isCouple(weddingId);
+
+        // MVP: se permite que un usuario recién registrado cree SU PROPIO
+        // registro de miembro (como novio al crear boda, o como
+        // colaborador al aceptar una invitación) sin que ya exista una
+        // membresía previa que lo autorice — porque en ese momento
+        // todavía no la tiene. Ver nota en README sobre endurecer esto
+        // con una Cloud Function callable más adelante.
+        allow create: if isSignedIn() && request.auth.uid == uid &&
+          resource == null &&
+          request.resource.data.role in ['novio', 'colaborador'];
+      }
+
+      match /invitations/{inviteId} {
+        // Gestionarlas (crear, listar, revocar) es solo de los novios.
+        allow read, create, update, delete: if isCouple(weddingId);
+        // Aceptar una invitación requiere localizarla por código vía
+        // collectionGroup query — eso exige lectura para cualquier
+        // usuario autenticado. Solo se exponen code/email/permissions,
+        // nada financiero ni de invitados.
+        allow read: if isSignedIn();
+        // Aceptar: solo puede cambiar 'status' a 'accepted', nada más.
+        allow update: if isSignedIn() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          request.resource.data.status == 'accepted';
       }
 
       match /budgetCategories/{docId} { allow read, write: if hasAdminAccess(weddingId, 'budget'); }

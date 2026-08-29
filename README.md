@@ -58,21 +58,32 @@ lib/
 ## 🛠️ Stack
 
 - **Flutter Web + Dart**
-- **Firebase**: Authentication, Cloud Firestore, Cloud Functions, Hosting (plan gratuito Spark)
-- **Cloudflare R2** — almacenamiento de archivos (fotos, documentos). Se usa en vez de Firebase Storage porque, desde feb. 2026, Firebase exige el plan Blaze (tarjeta vinculada) solo para aprovisionar un bucket, aunque el consumo real sea $0. R2 da 10GB gratis y cero costo de salida sin pedir tarjeta.
+- **Firebase**: Authentication, Cloud Firestore (plan gratuito Spark — sin tarjeta, sin plan Blaze)
+- **Cloudflare R2** — almacenamiento de archivos (fotos, documentos). Se usa en vez de Firebase Storage porque, desde feb. 2026, Firebase exige el plan Blaze (tarjeta vinculada) solo para aprovisionar un bucket, aunque el consumo real sea $0.
+- **Cloudflare Worker** — firma las URLs de subida hacia R2. Se usa en vez de Firebase Cloud Functions porque **desplegar cualquier Cloud Function también exige Blaze** (usa Cloud Build + Artifact Registry por debajo) — así que no evitaba el problema, solo lo movía. El Worker corre en el plan gratis de Cloudflare (100K requests/día, sin tarjeta).
 - **Riverpod** — gestión de estado
 - **go_router** — navegación con guards por rol
 - **Spotify Web API** — búsqueda de canciones (sin reproducir ni almacenar audio)
 
-### Sobre Cloud Functions
+### Sobre la Fase 3 — nota de seguridad pendiente
 
-El proyecto originalmente evitaba Cloud Functions salvo que fueran estrictamente necesarias. Aquí sí lo son: firmar URLs de subida hacia R2 requiere el *secret key* de la cuenta, que nunca debe vivir en el cliente Flutter. Dos functions (`getR2UploadUrl`, `deleteR2Object`) hacen ese trabajo — están en `/functions` y corren en el tier gratuito (2M invocaciones/mes).
+Crear boda y aceptar invitaciones se resuelve hoy con escrituras batch directas desde el cliente (ver `WeddingRepositoryImpl`), protegidas por `firestore.rules`. Es suficiente para el MVP, pero antes de abrir el proyecto a más gente que solo su propia boda conviene mover ambas operaciones a un endpoint server-side propio — así la validación de "solo puedes crear tu propia membresía inicial" vive en el servidor, no en reglas declarativas que confían en la forma del payload.
+
+### Sobre el almacenamiento de archivos (sin plan Blaze)
+
+Ni Firebase Storage ni Firebase Cloud Functions se pueden usar sin vincular tarjeta (plan Blaze), sin importar que el consumo real sea $0 — es un requisito de aprovisionamiento de Google, no de uso. Este proyecto evita Blaze por completo:
+
+- **Auth + Firestore** se quedan en Firebase (Spark, gratis, sin tarjeta) — no los toca esta restricción.
+- **Archivos** (fotos, documentos) van a **Cloudflare R2** (10GB gratis, cero costo de salida, sin tarjeta).
+- **Firmar las URLs de subida** (necesario porque el secret de R2 no puede vivir en el cliente) lo hace un **Cloudflare Worker** en `/cloudflare-worker` (100K requests/día gratis, sin tarjeta) — no una Cloud Function de Firebase.
+
+⚠️ El Worker valida el Firebase ID Token del usuario contra `aud` (proyecto) y `exp` (expiración), pero el código actual **no verifica la firma RS256 completa** (ver comentario en `cloudflare-worker/src/index.ts`). Es suficiente para desarrollo, pero antes de producción real hay que agregar verificación de firma con una librería como `jose` o `firebase-auth-cloudflare-workers`.
 
 ## 🗺️ Roadmap por fases
 
 - [x] **Fase 1** — Arquitectura, modelo de datos, roles y MVP
 - [x] **Fase 2** — Setup del proyecto + Auth base + Routing
-- [ ] Fase 3 — Registro, creación de boda, invitar colaboradores
+- [x] **Fase 3** — Registro, creación de boda, invitar colaboradores
 - [ ] Fase 4 — Dashboard
 - [ ] Fase 5 — Presupuesto y ahorro
 - [ ] Fase 6 — Invitados y RSVP
@@ -92,8 +103,9 @@ El proyecto originalmente evitaba Cloud Functions salvo que fueran estrictamente
 ### Requisitos
 
 - Flutter SDK (canal stable) — `flutter --version`
-- Cuenta de Firebase (plan gratuito Spark)
-- Node.js (para el Firebase CLI)
+- Cuenta de Firebase (plan gratuito Spark — **nunca subir a Blaze**, no hace falta)
+- Cuenta gratuita de Cloudflare
+- Node.js (para el Firebase CLI y Wrangler)
 
 ### 1. Instalar dependencias
 
@@ -105,40 +117,45 @@ flutter pub get
 
 1. [console.firebase.google.com](https://console.firebase.google.com) → **Crear proyecto** (plan Spark)
 2. Activar **Authentication** (Email/Password) y **Firestore Database** (modo producción)
-3. No es necesario activar Cloud Storage — el almacenamiento de archivos va por Cloudflare R2 (ver paso 4)
+3. No actives Cloud Storage ni Cloud Functions — ninguno de los dos se usa en este proyecto (ambos exigirían Blaze)
 
 ### 3. Crear el bucket en Cloudflare R2
 
-1. Cuenta gratuita en [dash.cloudflare.com](https://dash.cloudflare.com) → **R2** → **Create bucket**
-2. En **Settings** del bucket, activa un dominio público (o usa el subdominio `r2.dev` que da Cloudflare) — esa URL base es tu `R2_PUBLIC_BASE_URL`
+1. Cuenta gratuita en [dash.cloudflare.com](https://dash.cloudflare.com) → **R2** → **Create bucket** (nómbralo `vowly-wedding-files`)
+2. En **Settings** del bucket, activa un dominio público (o usa el subdominio `r2.dev` que da Cloudflare) — esa URL es tu `R2_PUBLIC_BASE_URL`
 3. **R2 → Manage API tokens** → crea un token con permiso de lectura/escritura sobre ese bucket → guarda el **Access Key ID** y el **Secret Access Key**
-4. Anota también tu **Account ID** (aparece en el dashboard de Cloudflare, panel derecho)
+4. Anota tu **Account ID** (dashboard de Cloudflare, panel derecho)
 
-### 4. Configurar los secrets de las Cloud Functions
+### 4. Desplegar el Cloudflare Worker (firma las URLs de subida)
 
 ```bash
-cd functions
+cd cloudflare-worker
 npm install
 
-firebase functions:secrets:set R2_ACCOUNT_ID
-firebase functions:secrets:set R2_ACCESS_KEY_ID
-firebase functions:secrets:set R2_SECRET_ACCESS_KEY
-firebase functions:secrets:set R2_BUCKET_NAME
-firebase functions:secrets:set R2_PUBLIC_BASE_URL
+npx wrangler login
 ```
 
-Cada comando te pide el valor y lo guarda cifrado en Google Secret Manager — nunca en el código ni en el repo.
+Completa `wrangler.toml` con tu `R2_ACCOUNT_ID`, `R2_BUCKET_NAME` y `R2_PUBLIC_BASE_URL` (no son secretos, van en texto plano). Los que sí son secretos:
 
 ```bash
-npm run build
-firebase deploy --only functions
+npx wrangler secret put R2_ACCESS_KEY_ID
+npx wrangler secret put R2_SECRET_ACCESS_KEY
 ```
+
+Despliega:
+
+```bash
+npx wrangler deploy
+```
+
+Te da una URL tipo `https://vowly-storage-worker.tu-cuenta.workers.dev` — guárdala, la necesitas en el paso 7.
 
 ### 5. Conectar el proyecto Flutter con Firebase
 
 ```bash
 npm install -g firebase-tools
 firebase login
+firebase use --add   # elige tu proyecto de Firebase
 
 dart pub global activate flutterfire_cli
 flutterfire configure
@@ -159,6 +176,13 @@ firebase deploy --only firestore:rules
 ```
 
 ### 8. Correr la app
+
+Pásale la URL del Worker que guardaste en el paso 4:
+
+```bash
+flutter run -d chrome --dart-define=STORAGE_WORKER_URL=https://vowly-storage-worker.tu-cuenta.workers.dev
+```
+
 
 ```bash
 flutter run -d chrome

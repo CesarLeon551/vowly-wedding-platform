@@ -1,0 +1,18 @@
+name = "vowly-storage-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "vowly-wedding-files"
+
+# Variables NO secretas (van en texto plano, ok subirlas al repo):
+[vars]
+FIREBASE_PROJECT_ID = "wedding-planner-app-2e6a5"
+R2_ACCOUNT_ID = ""            # tu Account ID de Cloudflare
+R2_BUCKET_NAME = "vowly-wedding-files"
+R2_PUBLIC_BASE_URL = ""       # ej. https://pub-xxxx.r2.dev
+
+# Secrets (NUNCA van aquí ni en el repo) — se configuran con:
+#   wrangler secret put R2_ACCESS_KEY_ID
+#   wrangler secret put R2_SECRET_ACCESS_KEY

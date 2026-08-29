@@ -5,10 +5,13 @@ import '../../core/constants/roles.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-/// Nota de diseño: por ahora un usuario pertenece a UNA boda. Si en el
-/// futuro (SaaS) un mismo uid participa en varias, esto se resuelve
-/// buscando en un índice `userWeddings/{uid}` en vez de un solo
-/// collectionGroup query como se hace aquí.
+/// Nota de diseño (revisado en Fase 3): un usuario pertenece a UNA boda
+/// por ahora. La membresía se resuelve vía un índice plano
+/// `users/{uid}` → {weddingId} en vez de un collectionGroup query sobre
+/// `members`, porque Firestore no permite comparar por ID corto de
+/// documento en un collectionGroup (solo por path completo, que aquí no
+/// se conoce de antemano). Este índice se escribe en el mismo batch que
+/// crea la boda o que acepta una invitación — ver WeddingRepositoryImpl.
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl(this._auth, this._db);
 
@@ -24,13 +27,9 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   Future<AppUser> _resolveMembership(fb.User fbUser) async {
-    final membershipQuery = await _db
-        .collectionGroup('members')
-        .where(FieldPath.documentId, isEqualTo: fbUser.uid)
-        .limit(1)
-        .get();
+    final indexDoc = await _db.collection('users').doc(fbUser.uid).get();
 
-    if (membershipQuery.docs.isEmpty) {
+    if (!indexDoc.exists) {
       // Autenticado pero sin boda asociada todavía (recién registrado).
       return AppUser(
         uid: fbUser.uid,
@@ -39,10 +38,26 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     }
 
-    final doc = membershipQuery.docs.first;
-    final weddingId = doc.reference.parent.parent!.id;
-    final data = doc.data();
+    final weddingId = indexDoc.data()!['weddingId'] as String;
 
+    final memberDoc = await _db
+        .collection('weddings')
+        .doc(weddingId)
+        .collection('members')
+        .doc(fbUser.uid)
+        .get();
+
+    if (!memberDoc.exists) {
+      // Índice desincronizado (no debería pasar si siempre se escriben
+      // juntos) — se trata igual que "sin boda" en vez de tronar la app.
+      return AppUser(
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: fbUser.displayName,
+      );
+    }
+
+    final data = memberDoc.data()!;
     final permsRaw = (data['permissions'] as Map?)?.cast<String, dynamic>() ?? {};
     final permissions = <AppModule, bool>{
       for (final module in AppModule.values)
@@ -66,6 +81,25 @@ class AuthRepositoryImpl implements AuthRepository {
       password: password,
     );
     return _resolveMembership(credential.user!);
+  }
+
+  @override
+  Future<AppUser> registerWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    await credential.user!.updateDisplayName(displayName);
+
+    return AppUser(
+      uid: credential.user!.uid,
+      email: email,
+      displayName: displayName,
+    );
   }
 
   @override
