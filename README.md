@@ -65,6 +65,10 @@ lib/
 - **go_router** — navegación con guards por rol
 - **Spotify Web API** — búsqueda de canciones (sin reproducir ni almacenar audio)
 
+### Sobre la Fase 4 — nota de robustez pendiente
+
+El dashboard combina 7 streams de Firestore en uno solo (presupuesto, gastos, ahorro, invitados, tareas, proveedores + la boda). Si el usuario es colaborador y le falta permiso sobre alguno de esos módulos, esa lectura específica falla y **rompe el stream combinado completo** (el dashboard se cae, no solo esa sección). Para el MVP (solo ustedes dos como "novios" con acceso total) esto no aplica, pero antes de dar acceso real a colaboradores con permisos parciales hay que hacer que cada sección falle de forma aislada en vez de tumbar todo el dashboard.
+
 ### Sobre la Fase 3 — nota de seguridad pendiente
 
 Crear boda y aceptar invitaciones se resuelve hoy con escrituras batch directas desde el cliente (ver `WeddingRepositoryImpl`), protegidas por `firestore.rules`. Es suficiente para el MVP, pero antes de abrir el proyecto a más gente que solo su propia boda conviene mover ambas operaciones a un endpoint server-side propio — así la validación de "solo puedes crear tu propia membresía inicial" vive en el servidor, no en reglas declarativas que confían en la forma del payload.
@@ -84,7 +88,7 @@ Ni Firebase Storage ni Firebase Cloud Functions se pueden usar sin vincular tarj
 - [x] **Fase 1** — Arquitectura, modelo de datos, roles y MVP
 - [x] **Fase 2** — Setup del proyecto + Auth base + Routing
 - [x] **Fase 3** — Registro, creación de boda, invitar colaboradores
-- [ ] Fase 4 — Dashboard
+- [x] **Fase 4** — Dashboard (cuenta regresiva, finanzas, invitados, organización, alertas)
 - [ ] Fase 5 — Presupuesto y ahorro
 - [ ] Fase 6 — Invitados y RSVP
 - [ ] Fase 7 — Playlist y Spotify

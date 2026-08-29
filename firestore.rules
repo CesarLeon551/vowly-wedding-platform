@@ -84,7 +84,16 @@ service cloud.firestore {
       match /budgetCategories/{docId} { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
       match /expenses/{docId}         { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
 
-      match /savings/{docId} { allow read, write: if hasAdminAccess(weddingId, 'savings'); }
+      match /savings/{docId} {
+        allow read, write: if hasAdminAccess(weddingId, 'savings');
+
+        match /savingsEntries/{entryId} {
+          allow read, write: if hasAdminAccess(weddingId, 'savings');
+        }
+        match /scratchCards/{memberUid} {
+          allow read, write: if hasAdminAccess(weddingId, 'savings');
+        }
+      }
 
       match /guests/{guestId} {
         allow read, write: if hasAdminAccess(weddingId, 'guests');

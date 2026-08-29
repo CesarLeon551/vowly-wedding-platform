@@ -31,6 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // y el router (con refreshListenable) redirige solo.
     } catch (e) {
       setState(() => _error = 'No pudimos iniciar sesión. Revisa tus datos.');
+      setState(() => _error = 'ERROR REAL: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
