@@ -9,6 +9,7 @@ import '../../features/budget/presentation/screens/budget_screen.dart';
 import '../../features/budget/presentation/screens/savings_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/guests/presentation/screens/guests_screen.dart';
+import '../../features/music/presentation/screens/music_screen.dart';
 import '../../features/rsvp/presentation/screens/rsvp_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/create_wedding_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/invite_collaborator_screen.dart';
@@ -109,8 +110,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/w/:weddingId/guests',
         builder: (context, state) => const GuestsScreen(),
       ),
+      GoRoute(
+        path: '/w/:weddingId/music',
+        builder: (context, state) => const MusicScreen(),
+      ),
       // Fase 8+: /w/:weddingId/vendors, /tasks, /tables, /timeline,
-      // /music, /gallery, /documents, /stats
+      // /gallery, /documents, /stats
 
       // Ruta pública, sin auth — accesible por invitados sin cuenta.
       GoRoute(
