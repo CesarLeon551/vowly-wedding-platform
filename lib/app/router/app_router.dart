@@ -5,7 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/application/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/budget/presentation/screens/budget_screen.dart';
+import '../../features/budget/presentation/screens/savings_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/guests/presentation/screens/guests_screen.dart';
+import '../../features/rsvp/presentation/screens/rsvp_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/create_wedding_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/invite_collaborator_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/join_wedding_screen.dart';
@@ -93,10 +97,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/w/:weddingId/invite',
         builder: (context, state) => const InviteCollaboratorScreen(),
       ),
-      // Fase 5+: /w/:weddingId/budget, /savings, /guests, /vendors,
-      // /tasks, /tables, /timeline, /music, /gallery, /documents, /stats
-      //
-      // Fase 9: /boda/:slug y /boda/:slug/rsvp (rutas públicas, sin auth)
+      GoRoute(
+        path: '/w/:weddingId/budget',
+        builder: (context, state) => const BudgetScreen(),
+      ),
+      GoRoute(
+        path: '/w/:weddingId/savings',
+        builder: (context, state) => const SavingsScreen(),
+      ),
+      GoRoute(
+        path: '/w/:weddingId/guests',
+        builder: (context, state) => const GuestsScreen(),
+      ),
+      // Fase 8+: /w/:weddingId/vendors, /tasks, /tables, /timeline,
+      // /music, /gallery, /documents, /stats
+
+      // Ruta pública, sin auth — accesible por invitados sin cuenta.
+      GoRoute(
+        path: '/boda/:slug/rsvp',
+        builder: (context, state) => RsvpScreen(slug: state.pathParameters['slug']!),
+      ),
+      // Fase 9: /boda/:slug (landing pública completa de la boda)
     ],
   );
 });

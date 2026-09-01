@@ -40,7 +40,7 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: statsAsync.when(
-        data: (stats) => _DashboardBody(stats: stats),
+        data: (stats) => _DashboardBody(stats: stats, weddingId: weddingId),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -54,9 +54,10 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.stats});
+  const _DashboardBody({required this.stats, required this.weddingId});
 
   final DashboardStats stats;
+  final String weddingId;
 
   @override
   Widget build(BuildContext context) {
@@ -85,6 +86,34 @@ class _DashboardBody extends StatelessWidget {
               const Text('días para la boda', style: TextStyle(color: Colors.white)),
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+
+        // Accesos rápidos a los módulos ya construidos
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.account_balance_wallet_outlined),
+                label: const Text('Presupuesto'),
+                onPressed: () => context.go('/w/$weddingId/budget'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.savings_outlined),
+                label: const Text('Ahorro'),
+                onPressed: () => context.go('/w/$weddingId/savings'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.people_outline),
+          label: const Text('Invitados'),
+          onPressed: () => context.go('/w/$weddingId/guests'),
         ),
         const SizedBox(height: 16),
 

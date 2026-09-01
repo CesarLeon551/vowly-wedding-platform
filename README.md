@@ -65,6 +65,12 @@ lib/
 - **go_router** — navegación con guards por rol
 - **Spotify Web API** — búsqueda de canciones (sin reproducir ni almacenar audio)
 
+### Sobre la Fase 6 — tradeoff de privacidad en RSVP público
+
+Para que un invitado sin cuenta pueda "buscar su invitación por apellido" en `/boda/:slug/rsvp`, la colección `guests` de cada boda es de **lectura pública** (sin autenticación) — ver el comentario detallado en `firestore.rules`. Esto expone nombre, teléfono y grupo de todos los invitados a cualquiera que tenga el link de RSVP, no solo el registro que busca. Es un tradeoff consciente para el MVP (boda privada, link solo compartido con invitados reales) — no usar este patrón tal cual si el proyecto se abre como SaaS público, ahí sí conviene un endpoint dedicado que resuelva "¿quién soy?" sin abrir toda la colección a lectura. La escritura sí está bien acotada: un invitado sin cuenta solo puede tocar `rsvpStatus`, `companions` y `dietaryRestrictions` — nada más, reforzado en las reglas, no solo en el cliente.
+
+La búsqueda por apellido además trae toda la colección al cliente y filtra ahí (no hay índice de búsqueda dedicado) — funciona bien para listas de invitados típicas de una boda, pero no escala a volúmenes grandes.
+
 ### Sobre la Fase 4 — nota de robustez pendiente
 
 El dashboard combina 7 streams de Firestore en uno solo (presupuesto, gastos, ahorro, invitados, tareas, proveedores + la boda). Si el usuario es colaborador y le falta permiso sobre alguno de esos módulos, esa lectura específica falla y **rompe el stream combinado completo** (el dashboard se cae, no solo esa sección). Para el MVP (solo ustedes dos como "novios" con acceso total) esto no aplica, pero antes de dar acceso real a colaboradores con permisos parciales hay que hacer que cada sección falle de forma aislada en vez de tumbar todo el dashboard.
@@ -89,8 +95,8 @@ Ni Firebase Storage ni Firebase Cloud Functions se pueden usar sin vincular tarj
 - [x] **Fase 2** — Setup del proyecto + Auth base + Routing
 - [x] **Fase 3** — Registro, creación de boda, invitar colaboradores
 - [x] **Fase 4** — Dashboard (cuenta regresiva, finanzas, invitados, organización, alertas)
-- [ ] Fase 5 — Presupuesto y ahorro
-- [ ] Fase 6 — Invitados y RSVP
+- [x] **Fase 5** — Presupuesto y ahorro (categorías, gastos, meta de ahorro, rasca y gana)
+- [x] **Fase 6** — Invitados y RSVP (panel admin + página pública sin login)
 - [ ] Fase 7 — Playlist y Spotify
 - [ ] Fase 8 — Proveedores y tareas
 - [ ] Fase 9 — Página pública

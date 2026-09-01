@@ -42,8 +42,12 @@ service cloud.firestore {
 
     match /weddings/{weddingId} {
 
-      // El documento raíz de la boda: solo miembros (cualquier rol) lo leen.
-      allow read: if isSignedIn();
+      // El documento raíz de la boda: miembros lo leen completo. También
+      // se permite lectura pública SIN auth — la necesita la página de
+      // RSVP para resolver la boda por su slug (/boda/:slug/rsvp) y la
+      // futura página pública de Fase 9. Solo expone name/date/slug/
+      // coupleUids, nada financiero ni de invitados (eso vive aparte).
+      allow read: if true;
       // Crear la boda: cualquier usuario autenticado puede crear UNA
       // boda donde él mismo sea el único integrante de coupleUids.
       // (Agregar al segundo novio es un paso posterior fuera de este MVP.)
@@ -97,10 +101,24 @@ service cloud.firestore {
 
       match /guests/{guestId} {
         allow read, write: if hasAdminAccess(weddingId, 'guests');
-        // RSVP público: cualquiera con el link puede ACTUALIZAR (no leer
-        // la lista completa) su propio registro. Se resuelve mejor con
-        // una Cloud Function que valide un token de invitación — placeholder
-        // por ahora, revisar antes de Fase 6/9.
+
+        // RSVP público (Fase 6): la página /boda/:slug/rsvp no tiene
+        // usuario autenticado, así que necesita:
+        //  - LEER toda la colección para poder "buscar mi invitación
+        //    por apellido" en el cliente (ver nota de escalabilidad en
+        //    RsvpRepositoryImpl). Esto expone nombre/teléfono/grupo de
+        //    los invitados a quien tenga el link público — aceptable
+        //    para el MVP de una boda privada, pero es un tradeoff real:
+        //    antes de una versión SaaS pública conviene mover la
+        //    búsqueda a un endpoint que no requiera abrir toda la
+        //    colección a lectura pública.
+        //  - ACTUALIZAR únicamente sus propios campos de RSVP
+        //    (rsvpStatus, companions, dietaryRestrictions) — nunca el
+        //    resto (allowedCompanions, tableId, notes, etc.), reforzado
+        //    aquí en las reglas, no solo confiando en el cliente.
+        allow read: if true;
+        allow update: if request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['rsvpStatus', 'companions', 'dietaryRestrictions']);
       }
 
       match /vendors/{docId}  { allow read, write: if hasAdminAccess(weddingId, 'vendors'); }

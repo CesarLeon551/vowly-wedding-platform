@@ -1,1 +1,5 @@
-{"firestore":{"rules":"firestore.rules"},"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"wedding-planner-app-2e6a5","configurations":{"web":"1:867678468044:web:ef5b1140fc9c2a495acf69"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}
