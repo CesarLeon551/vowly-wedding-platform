@@ -65,6 +65,12 @@ lib/
 - **go_router** — navegación con guards por rol
 - **Spotify Web API** — búsqueda de canciones (sin reproducir ni almacenar audio)
 
+### Sobre la Fase 7 — verificación de la API de Spotify
+
+Se usa el flujo **Client Credentials** de Spotify (solo búsqueda de metadata pública — canción, artista, álbum, duración, portada), que no requiere que ningún usuario inicie sesión con Spotify. No se reproduce, descarga ni distribuye audio, y no se guarda ningún archivo de audio — solo metadata y el link oficial a Spotify, tal como pedía el plan original. Esto se resolvió con el mismo Cloudflare Worker que ya firma URLs de R2 (se le agregó la ruta `/spotify/search`), así el `Client Secret` de Spotify nunca toca el cliente Flutter.
+
+Lo que el plan original marcaba como pendiente de verificar antes de construir la sincronización real con una playlist de Spotify (crear la playlist, agregar canciones aprobadas, sincronizarla) sigue sin implementarse — eso quedó fuera de esta fase a propósito, ya que requiere el flujo OAuth completo de un usuario de Spotify (no solo Client Credentials) y hay que revisar los términos vigentes de esa parte de la API antes de construirla.
+
 ### Sobre la Fase 6 — tradeoff de privacidad en RSVP público
 
 Para que un invitado sin cuenta pueda "buscar su invitación por apellido" en `/boda/:slug/rsvp`, la colección `guests` de cada boda es de **lectura pública** (sin autenticación) — ver el comentario detallado en `firestore.rules`. Esto expone nombre, teléfono y grupo de todos los invitados a cualquiera que tenga el link de RSVP, no solo el registro que busca. Es un tradeoff consciente para el MVP (boda privada, link solo compartido con invitados reales) — no usar este patrón tal cual si el proyecto se abre como SaaS público, ahí sí conviene un endpoint dedicado que resuelva "¿quién soy?" sin abrir toda la colección a lectura. La escritura sí está bien acotada: un invitado sin cuenta solo puede tocar `rsvpStatus`, `companions` y `dietaryRestrictions` — nada más, reforzado en las reglas, no solo en el cliente.
@@ -97,7 +103,7 @@ Ni Firebase Storage ni Firebase Cloud Functions se pueden usar sin vincular tarj
 - [x] **Fase 4** — Dashboard (cuenta regresiva, finanzas, invitados, organización, alertas)
 - [x] **Fase 5** — Presupuesto y ahorro (categorías, gastos, meta de ahorro, rasca y gana)
 - [x] **Fase 6** — Invitados y RSVP (panel admin + página pública sin login)
-- [ ] Fase 7 — Playlist y Spotify
+- [x] **Fase 7** — Playlist y Spotify (búsqueda oficial, votos, categorías, Nuestra historia)
 - [ ] Fase 8 — Proveedores y tareas
 - [ ] Fase 9 — Página pública
 - [ ] Fase 10 — Mesas y cronograma
@@ -150,6 +156,19 @@ Completa `wrangler.toml` con tu `R2_ACCOUNT_ID`, `R2_BUCKET_NAME` y `R2_PUBLIC_B
 ```bash
 npx wrangler secret put R2_ACCESS_KEY_ID
 npx wrangler secret put R2_SECRET_ACCESS_KEY
+```
+
+### 4.1. Registrar la app en Spotify (Fase 7)
+
+1. [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app** (gratis)
+2. Nombre/descripción lo que quieras, Redirect URI puedes poner `https://localhost` (no se usa — este proyecto solo hace búsqueda de metadata con Client Credentials, no login de usuario de Spotify)
+3. Copia el **Client ID** y **Client Secret**
+
+Agrégalos como secrets del mismo Worker:
+
+```bash
+npx wrangler secret put SPOTIFY_CLIENT_ID
+npx wrangler secret put SPOTIFY_CLIENT_SECRET
 ```
 
 Despliega:

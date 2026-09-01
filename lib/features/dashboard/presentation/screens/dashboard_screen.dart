@@ -115,6 +115,12 @@ class _DashboardBody extends StatelessWidget {
           label: const Text('Invitados'),
           onPressed: () => context.go('/w/$weddingId/guests'),
         ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.music_note_outlined),
+          label: const Text('Música'),
+          onPressed: () => context.go('/w/$weddingId/music'),
+        ),
         const SizedBox(height: 16),
 
         // Alertas
