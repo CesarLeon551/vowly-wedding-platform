@@ -19,6 +19,8 @@ export interface Env {
   R2_SECRET_ACCESS_KEY: string;
   R2_BUCKET_NAME: string;
   R2_PUBLIC_BASE_URL: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_CLIENT_SECRET: string;
 }
 
 /**
@@ -49,11 +51,45 @@ async function verifyFirebaseToken(idToken: string, projectId: string): Promise<
   return payload.sub as string; // uid
 }
 
+// Cache del token de Spotify a nivel de módulo — sobrevive mientras el
+// mismo Worker isolate esté vivo (ahorra una llamada extra a Spotify en
+// requests seguidos). Si el isolate se recicla, simplemente se pide uno
+// nuevo — no rompe nada, solo es una optimización.
+let spotifyTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getSpotifyToken(env: Env): Promise<string> {
+  if (spotifyTokenCache && spotifyTokenCache.expiresAt > Date.now()) {
+    return spotifyTokenCache.token;
+  }
+
+  const basicAuth = btoa(`${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`);
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${basicAuth}`,
+    },
+    body: "grant_type=client_credentials",
+  });
+
+  if (!res.ok) {
+    throw new Error(`No se pudo autenticar con Spotify (${res.status}).`);
+  }
+
+  const data = await res.json<{ access_token: string; expires_in: number }>();
+  spotifyTokenCache = {
+    token: data.access_token,
+    // Restamos 60s de margen de seguridad antes de que expire de verdad.
+    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+  };
+  return data.access_token;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
@@ -61,6 +97,58 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    const url = new URL(request.url);
+
+    // --- Búsqueda de Spotify (Fase 7) ---
+    // No requiere Firebase ID Token: los invitados sin cuenta también
+    // buscan canciones para agregarlas a la playlist colaborativa.
+    if (url.pathname === "/spotify/search") {
+      if (request.method !== "GET") {
+        return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+      }
+      const q = url.searchParams.get("q");
+      if (!q || q.trim().length === 0) {
+        return new Response(JSON.stringify({ tracks: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const token = await getSpotifyToken(env);
+        const searchRes = await fetch(
+          `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!searchRes.ok) {
+  const errorBody = await searchRes.text();
+  return new Response(
+    `Error de Spotify (${searchRes.status}): ${errorBody}`,
+    { status: 502, headers: corsHeaders }
+  );
+}
+
+        const data = await searchRes.json<{ tracks: { items: unknown[] } }>();
+
+        const tracks = data.tracks.items.map((t: any) => ({
+          spotifyTrackId: t.id,
+          name: t.name,
+          artist: (t.artists ?? []).map((a: any) => a.name).join(', '),
+          album: t.album?.name ?? '',
+          imageUrl: t.album?.images?.[1]?.url ?? t.album?.images?.[0]?.url ?? null,
+          durationMs: t.duration_ms,
+          spotifyUrl: t.external_urls?.spotify ?? '',
+        }));
+
+        return new Response(JSON.stringify({ tracks }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(`Error: ${(e as Error).message}`, { status: 500, headers: corsHeaders });
+      }
+    }
+
+    // --- Rutas de R2 (Fase 11 en adelante) — requieren sesión ---
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405, headers: corsHeaders });
     }
@@ -80,7 +168,6 @@ export default {
       });
     }
 
-    const url = new URL(request.url);
     const body = await request.json<{ path?: string; contentType?: string }>();
 
     if (!body.path || body.path.includes("..")) {
