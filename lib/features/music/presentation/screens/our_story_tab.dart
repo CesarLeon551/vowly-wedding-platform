@@ -89,7 +89,7 @@ class OurStoryTab extends ConsumerWidget {
   void _showResults(BuildContext context, WidgetRef ref, List<SpotifyTrack> results) {
     showModalBottomSheet(
       context: context,
-      builder: (_) => ListView(
+      builder: (sheetContext) => ListView(
         children: results
             .map((t) => ListTile(
                   title: Text(t.name),
@@ -97,7 +97,7 @@ class OurStoryTab extends ConsumerWidget {
                   trailing: TextButton(
                     onPressed: () {
                       ref.read(musicRepositoryProvider).addToOurStory(weddingId, t, uid);
-                      Navigator.pop(context);
+                      Navigator.pop(sheetContext);
                     },
                     child: const Text('Agregar'),
                   ),

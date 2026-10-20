@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/theme/back_to_dashboard_button.dart';
 import '../../../../domain/entities/savings.dart';
 import '../../../auth/application/auth_providers.dart';
 import '../../application/budget_providers.dart';
@@ -22,7 +23,10 @@ class SavingsScreen extends ConsumerWidget {
     final currency = NumberFormat.currency(locale: 'es_MX', symbol: r'$', decimalDigits: 0);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ahorro')),
+      appBar: AppBar(
+        leading: BackToDashboardButton(weddingId: weddingId),
+        title: const Text('Ahorro'),
+      ),
       body: goalAsync.when(
         data: (goal) {
           final entries = entriesAsync.valueOrNull ?? [];
@@ -94,6 +98,11 @@ class SavingsScreen extends ConsumerWidget {
                     leading: Icon(e.source == 'rasca_y_gana' ? Icons.grid_view : Icons.savings_outlined),
                     title: Text(currency.format(e.amount)),
                     subtitle: Text(DateFormat.yMMMd('es_MX').format(e.date)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                      tooltip: 'Quitar este ahorro',
+                      onPressed: () => _confirmDelete(context, ref, weddingId, e),
+                    ),
                   )),
             ],
           );
@@ -108,7 +117,7 @@ class SavingsScreen extends ConsumerWidget {
     final ctrl = TextEditingController(text: current == 0 ? '' : current.toStringAsFixed(0));
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Meta de ahorro'),
         content: TextField(
           controller: ctrl,
@@ -116,14 +125,40 @@ class SavingsScreen extends ConsumerWidget {
           decoration: const InputDecoration(labelText: 'Monto (MXN)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(ctrl.text.replaceAll(',', '')) ?? 0;
               await ref.read(savingsRepositoryProvider).setGoal(weddingId, amount);
-              if (context.mounted) Navigator.pop(context);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, String weddingId, SavingsEntry entry) {
+    final currency = NumberFormat.currency(locale: 'es_MX', symbol: r'$', decimalDigits: 0);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Quitar este ahorro?'),
+        content: Text(
+          entry.source == 'rasca_y_gana'
+              ? 'Se quitará el registro de ${currency.format(entry.amount)} y la casilla correspondiente en tu tarjeta de rasca y gana volverá a estar disponible.'
+              : 'Se quitará el registro de ${currency.format(entry.amount)}.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () async {
+              await ref.read(savingsRepositoryProvider).deleteEntry(weddingId, entry);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('Quitar'),
           ),
         ],
       ),
@@ -134,7 +169,7 @@ class SavingsScreen extends ConsumerWidget {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Registrar ahorro'),
         content: TextField(
           controller: ctrl,
@@ -142,7 +177,7 @@ class SavingsScreen extends ConsumerWidget {
           decoration: const InputDecoration(labelText: 'Monto (MXN)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
               final amount = double.tryParse(ctrl.text.replaceAll(',', '')) ?? 0;
@@ -152,7 +187,7 @@ class SavingsScreen extends ConsumerWidget {
                       SavingsEntry(id: '', amount: amount, date: DateTime.now(), memberUid: uid, source: 'manual'),
                     );
               }
-              if (context.mounted) Navigator.pop(context);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: const Text('Guardar'),
           ),

@@ -44,6 +44,7 @@ class Song {
     required this.isFavorite,
     required this.isEssential,
     required this.isDoNotPlay,
+    this.spotifySynced = false,
   });
 
   final String id;
@@ -62,6 +63,10 @@ class Song {
   final bool isFavorite;
   final bool isEssential;
   final bool isDoNotPlay;
+
+  /// true si esta canción ya está agregada a la playlist real de Spotify
+  /// (no solo en la playlist colaborativa interna de la app).
+  final bool spotifySynced;
 
   factory Song.fromMap(String id, Map<String, dynamic> map) {
     return Song(
@@ -84,6 +89,7 @@ class Song {
       isFavorite: map['isFavorite'] as bool? ?? false,
       isEssential: map['isEssential'] as bool? ?? false,
       isDoNotPlay: map['isDoNotPlay'] as bool? ?? false,
+      spotifySynced: map['spotifySynced'] as bool? ?? false,
     );
   }
 
@@ -103,5 +109,6 @@ class Song {
         'isFavorite': isFavorite,
         'isEssential': isEssential,
         'isDoNotPlay': isDoNotPlay,
+        'spotifySynced': spotifySynced,
       };
 }

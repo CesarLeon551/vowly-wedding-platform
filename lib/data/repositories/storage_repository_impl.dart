@@ -43,25 +43,19 @@ class StorageRepositoryImpl implements StorageRepository {
   }) async {
     final token = await _idToken();
 
-    final signResponse = await _dio.post(
-      '$_workerBaseUrl/upload-url',
-      data: {'path': path, 'contentType': contentType},
-      options: Options(headers: {'Authorization': 'Bearer $token'}),
-    );
-
-    final uploadUrl = signResponse.data['uploadUrl'] as String;
-    final publicUrl = signResponse.data['publicUrl'] as String;
-
-    await _dio.put(
-      uploadUrl,
+    final response = await _dio.post(
+      '$_workerBaseUrl/upload',
+      queryParameters: {'path': path},
       data: bytes,
       options: Options(
-        headers: {'Content-Type': contentType},
-        validateStatus: (status) => status != null && status < 300,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': contentType,
+        },
+        contentType: contentType,
       ),
     );
-
-    return publicUrl;
+    return response.data['publicUrl'] as String;
   }
 
   @override

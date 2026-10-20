@@ -39,6 +39,31 @@ class SavingsRepositoryImpl implements SavingsRepository {
   }
 
   @override
+  Future<void> deleteEntry(String weddingId, SavingsEntry entry) async {
+    final refs = FirestoreRefs(_db, weddingId);
+    final batch = _db.batch();
+
+    batch.delete(refs.savingsEntries().doc(entry.id));
+
+    if (entry.source == 'rasca_y_gana' && entry.memberUid != null && entry.cellIndex != null) {
+      final cardSnap = await refs.scratchCards.doc(entry.memberUid).get();
+      if (cardSnap.exists) {
+        final card = ScratchCard.fromMap(entry.memberUid!, cardSnap.data()!);
+        if (entry.cellIndex! < card.cells.length) {
+          final updatedCells = [...card.cells];
+          updatedCells[entry.cellIndex!] = updatedCells[entry.cellIndex!].copyWith(completed: false);
+          batch.set(
+            refs.scratchCards.doc(entry.memberUid),
+            ScratchCard(memberUid: entry.memberUid!, cells: updatedCells).toMap(),
+          );
+        }
+      }
+    }
+
+    await batch.commit();
+  }
+
+  @override
   Stream<ScratchCard?> watchScratchCard(String weddingId, String memberUid) {
     return FirestoreRefs(_db, weddingId)
         .scratchCards
@@ -77,6 +102,7 @@ class SavingsRepositoryImpl implements SavingsRepository {
         'date': Timestamp.now(),
         'memberUid': memberUid,
         'source': 'rasca_y_gana',
+        'cellIndex': cellIndex,
       },
     );
     await batch.commit();

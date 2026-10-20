@@ -7,6 +7,11 @@ abstract class SavingsRepository {
   Stream<List<SavingsEntry>> watchEntries(String weddingId);
   Future<void> addEntry(String weddingId, SavingsEntry entry);
 
+  /// Borra un registro de ahorro. Si vino de una casilla del rasca y
+  /// gana (source == 'rasca_y_gana'), también revierte esa casilla a
+  /// "no completada" — pensado para corregir un clic de más.
+  Future<void> deleteEntry(String weddingId, SavingsEntry entry);
+
   Stream<ScratchCard?> watchScratchCard(String weddingId, String memberUid);
   Future<void> createScratchCard(String weddingId, String memberUid, double target);
 

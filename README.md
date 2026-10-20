@@ -65,6 +65,18 @@ lib/
 - **go_router** — navegación con guards por rol
 - **Spotify Web API** — búsqueda de canciones (sin reproducir ni almacenar audio)
 
+### Sobre la Fase 15 — rediseño visual
+
+Pendiente de arrancar. Alcance: pasar de la paleta/tema base definido en Fase 1-2 (`AppTheme`, funcional pero genérico) a un rediseño completo enfocado en que la app se sienta más amigable e intuitiva de usar, sin perder el look elegante y moderno que pedía el brief original. Cubre tipografía, espaciados, micro-interacciones y posible rediseño de componentes reutilizados (`StatTile`, `DashboardSectionCard`, tarjetas de canción/invitado/gasto) — no cambia arquitectura ni modelo de datos, es una pasada transversal sobre todo lo ya construido en fases 1-14.
+
+### Sobre la Fase 7.2 — sincronización real con Spotify (OAuth)
+
+A diferencia de la búsqueda (que usa Client Credentials, sin login), sincronizar una playlist REAL en la cuenta de Spotify de los novios requiere que ellos inicien sesión y autoricen la app una vez (flujo OAuth Authorization Code, scope `playlist-modify-private`). Al aprobar una canción se intenta agregar automáticamente a esa playlist real; al des-aprobarla, se intenta quitar. Ambas operaciones son **"mejor esfuerzo"**: si Spotify falla, el estado interno de la app (aprobada/rechazada) sigue siendo correcto y confiable — solo queda pendiente de reflejarse en Spotify, marcado con un ícono de advertencia, y se puede reintentar manualmente ("Reintentar sincronizar" por canción, o "Sincronizar todo" para varias a la vez).
+
+Por qué "mejor esfuerzo" y no una garantía dura: hay reportes recientes (2026) de desarrolladores con el scope correcto recibiendo error 403 al escribir en playlists desde apps en modo desarrollo, sin una causa clara documentada por Spotify — el mismo patrón de cambios sin aviso que ya vivimos con el límite de búsqueda y el requisito de Premium en Fase 7. No se puede garantizar que esto funcione siempre, por eso el diseño no bloquea ni depende de que Spotify responda bien.
+
+El refresh token de Spotify se guarda en `weddings/{weddingId}/integrations/spotify`, protegido en Firestore Rules para que **solo los novios** (ni colaboradores) puedan leerlo o escribirlo — es una credencial, no un dato operativo de la boda.
+
 ### Sobre la Fase 7 — verificación de la API de Spotify
 
 Se usa el flujo **Client Credentials** de Spotify (solo búsqueda de metadata pública — canción, artista, álbum, duración, portada), que no requiere que ningún usuario inicie sesión con Spotify. No se reproduce, descarga ni distribuye audio, y no se guarda ningún archivo de audio — solo metadata y el link oficial a Spotify, tal como pedía el plan original. Esto se resolvió con el mismo Cloudflare Worker que ya firma URLs de R2 (se le agregó la ruta `/spotify/search`), así el `Client Secret` de Spotify nunca toca el cliente Flutter.
@@ -111,6 +123,7 @@ Ni Firebase Storage ni Firebase Cloud Functions se pueden usar sin vincular tarj
 - [ ] Fase 12 — Notificaciones
 - [ ] Fase 13 — Estadísticas
 - [ ] Fase 14 — Asistente con IA
+- [ ] Fase 15 — Rediseño visual completo (más amigable e intuitivo, sin perder elegancia y modernidad)
 
 ---
 
@@ -161,7 +174,9 @@ npx wrangler secret put R2_SECRET_ACCESS_KEY
 ### 4.1. Registrar la app en Spotify (Fase 7)
 
 1. [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) → **Create app** (gratis)
-2. Nombre/descripción lo que quieras, Redirect URI puedes poner `https://localhost` (no se usa — este proyecto solo hace búsqueda de metadata con Client Credentials, no login de usuario de Spotify)
+2. Nombre/descripción lo que quieras. En **Redirect URIs** agrega DOS:
+   - `http://127.0.0.1:5000/#/spotify-connected` (no se usa directamente, pero Spotify exige al menos una)
+   - `https://TU-WORKER.workers.dev/spotify/auth/callback` (esta sí se usa — reemplaza con la URL real de tu Worker, la que te dio `wrangler deploy`)
 3. Copia el **Client ID** y **Client Secret**
 
 Agrégalos como secrets del mismo Worker:
@@ -170,6 +185,10 @@ Agrégalos como secrets del mismo Worker:
 npx wrangler secret put SPOTIFY_CLIENT_ID
 npx wrangler secret put SPOTIFY_CLIENT_SECRET
 ```
+
+Además, en `wrangler.toml`, confirma que `FLUTTER_APP_URL` apunte a `http://127.0.0.1:5000` para desarrollo local (ya viene así por defecto). Cuando despliegues la app a un dominio real, cambia este valor a esa URL.
+
+En `run.bat`, reemplaza `PON_AQUI_TU_CLIENT_ID` por tu Client ID real (no es secreto, se puede subir al repo sin problema — solo el Client Secret es sensible y ese vive únicamente en los secrets del Worker).
 
 Despliega:
 

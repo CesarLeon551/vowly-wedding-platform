@@ -16,6 +16,7 @@ abstract class MusicRepository {
 
   /// Solo novios/colaborador con acceso a música (reforzado en rules).
   Future<void> updateStatus(String weddingId, String songId, SongStatus status);
+  Future<void> setSpotifySynced(String weddingId, String songId, bool synced);
   Future<void> setFlags(
     String weddingId,
     String songId, {

@@ -73,9 +73,6 @@ class Guest {
         'notes': notes,
       };
 
-  /// Solo los campos que un invitado sin cuenta puede modificar desde la
-  /// página pública de RSVP — coincide con lo que permiten las Security
-  /// Rules para escritura no autenticada.
   Map<String, dynamic> toRsvpUpdateMap() => {
         'rsvpStatus': rsvpStatus.name,
         'companions': companions,

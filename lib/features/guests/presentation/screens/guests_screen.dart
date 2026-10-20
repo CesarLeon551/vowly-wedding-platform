@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/theme/back_to_dashboard_button.dart';
 import '../../../../domain/entities/guest.dart';
 import '../../../auth/application/auth_providers.dart';
 import '../../application/guests_providers.dart';
 import 'add_guest_screen.dart';
+
+import 'package:flutter/services.dart';
+import '../../../public_page/application/public_page_providers.dart';
 
 class GuestsScreen extends ConsumerStatefulWidget {
   const GuestsScreen({super.key});
@@ -37,7 +41,10 @@ class _GuestsScreenState extends ConsumerState<GuestsScreen> {
     final guestsAsync = ref.watch(guestsStreamProvider(weddingId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Invitados')),
+      appBar: AppBar(
+        leading: BackToDashboardButton(weddingId: weddingId),
+        title: const Text('Invitados'),
+      ),
       body: guestsAsync.when(
         data: (guests) {
           final filtered = _filter == null ? guests : guests.where((g) => g.rsvpStatus == _filter).toList();
@@ -83,11 +90,34 @@ class _GuestsScreenState extends ConsumerState<GuestsScreen> {
                                 if (g.group != null) g.group!,
                                 if (g.companions.isNotEmpty) '+${g.companions.length} acompañante(s)',
                               ].join(' · ')),
-                              trailing: Chip(
-                                label: Text(_statusLabel(g.rsvpStatus)),
-                                backgroundColor: _statusColor(g.rsvpStatus).withOpacity(0.15),
-                                labelStyle: TextStyle(color: _statusColor(g.rsvpStatus)),
-                              ),
+                              trailing: Row(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Consumer(
+      builder: (context, ref, _) {
+        final slug = ref.watch(weddingSlugStreamProvider(weddingId)).valueOrNull;
+        return IconButton(
+          icon: const Icon(Icons.link, size: 20),
+          tooltip: 'Copiar link personalizado',
+          onPressed: slug == null
+              ? null
+              : () {
+                  final link = '${Uri.base.origin}/#/boda/$slug/i/${g.id}';
+                  Clipboard.setData(ClipboardData(text: link));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Link copiado')),
+                  );
+                },
+        );
+      },
+    ),
+    Chip(
+      label: Text(_statusLabel(g.rsvpStatus)),
+      backgroundColor: _statusColor(g.rsvpStatus).withOpacity(0.15),
+      labelStyle: TextStyle(color: _statusColor(g.rsvpStatus)),
+    ),
+  ],
+),
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => AddGuestScreen(weddingId: weddingId, existing: g),
