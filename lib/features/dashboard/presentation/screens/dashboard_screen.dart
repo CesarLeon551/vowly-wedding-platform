@@ -89,6 +89,12 @@ class _DashboardBody extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
+        OutlinedButton.icon(
+          icon: const Icon(Icons.table_restaurant_outlined),
+          label: const Text('Mesas y cronograma'),
+          onPressed: () => context.go('/w/$weddingId/planning'),
+        ),
+        const SizedBox(height: 12),
         // Accesos rápidos a los módulos ya construidos
         Row(
           children: [
@@ -109,6 +115,32 @@ class _DashboardBody extends StatelessWidget {
             ),
           ],
         ),
+        Row(
+  children: [
+    Expanded(
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.storefront_outlined),
+        label: const Text('Proveedores'),
+        onPressed: () => context.go('/w/$weddingId/vendors'),
+      ),
+    ),
+    const SizedBox(width: 8),
+    Expanded(
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.checklist_outlined),
+        label: const Text('Tareas'),
+        onPressed: () => context.go('/w/$weddingId/tasks'),
+      ),
+    ),
+  ],
+),
+const SizedBox(height: 8),
+OutlinedButton.icon(
+  icon: const Icon(Icons.edit_note_outlined),
+  label: const Text('Editar página pública'),
+  onPressed: () => context.go('/w/$weddingId/public-page-editor'),
+),
+const SizedBox(height: 8),
         const SizedBox(height: 8),
         OutlinedButton.icon(
           icon: const Icon(Icons.people_outline),

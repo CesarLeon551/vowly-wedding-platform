@@ -9,12 +9,18 @@ import '../../features/budget/presentation/screens/budget_screen.dart';
 import '../../features/budget/presentation/screens/savings_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/guests/presentation/screens/guests_screen.dart';
+import '../../features/planning/presentation/screens/planning_screen.dart';
 import '../../features/music/presentation/screens/music_screen.dart';
-import '../../features/rsvp/presentation/screens/rsvp_screen.dart';
+import '../../features/music/presentation/screens/spotify_connected_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/create_wedding_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/invite_collaborator_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/join_wedding_screen.dart';
 import '../../features/wedding_onboarding/presentation/screens/welcome_screen.dart';
+
+import '../../features/vendors/presentation/screens/vendors_screen.dart';
+import '../../features/vendors/presentation/screens/tasks_screen.dart';
+import '../../features/public_page/presentation/screens/guest_landing_screen.dart';
+import '../../features/public_page/presentation/screens/edit_public_page_screen.dart';
 
 /// Puente entre el Stream de Riverpod (authStateProvider) y el
 /// Listenable que go_router necesita para refrescar el redirect
@@ -111,18 +117,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GuestsScreen(),
       ),
       GoRoute(
+        path: '/w/:weddingId/planning',
+        builder: (context, state) => PlanningScreen(weddingId: state.pathParameters['weddingId']!),
+      ),
+      GoRoute(
         path: '/w/:weddingId/music',
         builder: (context, state) => const MusicScreen(),
+      ),
+      GoRoute(
+        path: '/w/:weddingId/vendors',
+        builder: (context, state) => const VendorsScreen(),
+      ),
+      GoRoute(
+        path: '/w/:weddingId/tasks',
+        builder: (context, state) => const TasksScreen(),
+      ),
+      GoRoute(
+        path: '/w/:weddingId/public-page-editor',
+        builder: (context, state) => const EditPublicPageScreen(),
+      ),
+      GoRoute(
+        path: '/spotify-connected',
+        builder: (context, state) => SpotifyConnectedScreen(
+          weddingId: state.uri.queryParameters['weddingId'],
+          refreshToken: state.uri.queryParameters['refreshToken'],
+          playlistId: state.uri.queryParameters['playlistId'],
+          playlistUrl: state.uri.queryParameters['playlistUrl'],
+          error: state.uri.queryParameters['error'],
+        ),
       ),
       // Fase 8+: /w/:weddingId/vendors, /tasks, /tables, /timeline,
       // /gallery, /documents, /stats
 
       // Ruta pública, sin auth — accesible por invitados sin cuenta.
-      GoRoute(
-        path: '/boda/:slug/rsvp',
-        builder: (context, state) => RsvpScreen(slug: state.pathParameters['slug']!),
-      ),
       // Fase 9: /boda/:slug (landing pública completa de la boda)
+      GoRoute(
+        path: '/boda/:slug/i/:guestId',
+        builder: (context, state) => GuestLandingScreen(
+          slug: state.pathParameters['slug']!,
+          guestId: state.pathParameters['guestId']!,
+        ),
+      ),
     ],
   );
 });

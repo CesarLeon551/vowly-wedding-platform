@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/theme/back_to_dashboard_button.dart';
 import '../../../../domain/entities/budget_category.dart';
 import '../../../../domain/entities/expense.dart';
 import '../../../auth/application/auth_providers.dart';
@@ -26,6 +27,7 @@ class BudgetScreen extends ConsumerWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
+          leading: BackToDashboardButton(weddingId: weddingId),
           title: const Text('Presupuesto'),
           bottom: const TabBar(tabs: [Tab(text: 'Gastos'), Tab(text: 'Categorías')]),
         ),

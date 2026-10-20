@@ -5,9 +5,6 @@ import '../../domain/entities/guest.dart';
 import '../../domain/entities/wedding.dart';
 import '../../domain/repositories/rsvp_repository.dart';
 
-/// Todo aquí corre SIN autenticación (invitados no tienen cuenta).
-/// La protección real vive en firestore.rules — este repositorio solo
-/// pide lo mínimo necesario, nunca el resto de datos administrativos.
 class RsvpRepositoryImpl implements RsvpRepository {
   RsvpRepositoryImpl(this._db);
 
@@ -30,27 +27,14 @@ class RsvpRepositoryImpl implements RsvpRepository {
   }
 
   @override
-  Future<List<Guest>> searchGuestsByLastName(String weddingId, String lastName) async {
-    // MVP: sin índice de búsqueda dedicado, se trae la lista completa de
-    // invitados (permitido por Security Rules públicamente, ver nota en
-    // firestore.rules) y se filtra en el cliente. Funciona bien para
-    // listas de boda típicas (decenas a un par de cientos); si esto
-    // crece mucho, conviene mover la búsqueda a un campo indexado en
-    // minúsculas o a un servicio de búsqueda dedicado.
-    final snap = await FirestoreRefs(_db, weddingId).guests.get();
-    final query = lastName.trim().toLowerCase();
-
-    return snap.docs
-        .map((d) => Guest.fromMap(d.id, d.data()))
-        .where((g) => g.lastName.toLowerCase().contains(query))
-        .toList();
+  Future<Guest?> getGuestById(String weddingId, String guestId) async {
+    final doc = await FirestoreRefs(_db, weddingId).guests.doc(guestId).get();
+    if (!doc.exists) return null;
+    return Guest.fromMap(doc.id, doc.data()!);
   }
 
   @override
   Future<void> submitRsvp(String weddingId, Guest guest) {
-    return FirestoreRefs(_db, weddingId)
-        .guests
-        .doc(guest.id)
-        .update(guest.toRsvpUpdateMap());
+    return FirestoreRefs(_db, weddingId).guests.doc(guest.id).update(guest.toRsvpUpdateMap());
   }
 }

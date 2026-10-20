@@ -55,6 +55,12 @@ service cloud.firestore {
         request.resource.data.coupleUids == [request.auth.uid];
       allow update, delete: if isCouple(weddingId);
 
+
+	match /publicPage/{docId} {
+ 	 allow read: if true;
+  	allow write: if isCouple(weddingId);
+	}
+
       match /members/{uid} {
         // Cada quien puede leer su propia membresía (el router la necesita).
         allow read: if isSignedIn() && request.auth.uid == uid;
@@ -85,6 +91,14 @@ service cloud.firestore {
           request.resource.data.status == 'accepted';
       }
 
+      // Credenciales de integraciones externas (Fase 7.2: refresh token
+      // de Spotify). Solo los novios — ni siquiera colaboradores con
+      // acceso al módulo de música — porque es una credencial, no un
+      // dato operativo de la boda.
+      match /integrations/{integrationId} {
+        allow read, write: if isCouple(weddingId);
+      }
+
       match /budgetCategories/{docId} { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
       match /expenses/{docId}         { allow read, write: if hasAdminAccess(weddingId, 'budget'); }
 
@@ -100,26 +114,16 @@ service cloud.firestore {
       }
 
       match /guests/{guestId} {
-        allow read, write: if hasAdminAccess(weddingId, 'guests');
+  allow write: if hasAdminAccess(weddingId, 'guests');
+  allow list: if hasAdminAccess(weddingId, 'guests');
 
-        // RSVP público (Fase 6): la página /boda/:slug/rsvp no tiene
-        // usuario autenticado, así que necesita:
-        //  - LEER toda la colección para poder "buscar mi invitación
-        //    por apellido" en el cliente (ver nota de escalabilidad en
-        //    RsvpRepositoryImpl). Esto expone nombre/teléfono/grupo de
-        //    los invitados a quien tenga el link público — aceptable
-        //    para el MVP de una boda privada, pero es un tradeoff real:
-        //    antes de una versión SaaS pública conviene mover la
-        //    búsqueda a un endpoint que no requiera abrir toda la
-        //    colección a lectura pública.
-        //  - ACTUALIZAR únicamente sus propios campos de RSVP
-        //    (rsvpStatus, companions, dietaryRestrictions) — nunca el
-        //    resto (allowedCompanions, tableId, notes, etc.), reforzado
-        //    aquí en las reglas, no solo confiando en el cliente.
-        allow read: if true;
-        allow update: if request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['rsvpStatus', 'companions', 'dietaryRestrictions']);
-      }
+  // El invitado lee SOLO su propio documento (conoce el ID por su
+  // link), pero no puede listar ni buscar en el resto de la colección.
+  allow get: if true;
+
+  allow update: if request.resource.data.diff(resource.data).affectedKeys()
+    .hasOnly(['rsvpStatus', 'companions', 'dietaryRestrictions']);
+}
 
       match /vendors/{docId}  { allow read, write: if hasAdminAccess(weddingId, 'vendors'); }
       match /tasks/{docId}    { allow read, write: if hasAdminAccess(weddingId, 'tasks'); }

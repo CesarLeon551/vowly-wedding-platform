@@ -81,6 +81,11 @@ class MusicRepositoryImpl implements MusicRepository {
   }
 
   @override
+  Future<void> setSpotifySynced(String weddingId, String songId, bool synced) {
+    return FirestoreRefs(_db, weddingId).songs.doc(songId).update({'spotifySynced': synced});
+  }
+
+  @override
   Future<void> setFlags(
     String weddingId,
     String songId, {

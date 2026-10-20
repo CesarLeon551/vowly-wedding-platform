@@ -18,6 +18,7 @@ class SavingsEntry {
     required this.date,
     this.memberUid,
     this.source,
+    this.cellIndex,
   });
 
   final String id;
@@ -28,6 +29,11 @@ class SavingsEntry {
   /// 'manual' o 'rasca_y_gana'
   final String? source;
 
+  /// Solo presente cuando source == 'rasca_y_gana' — permite revertir
+  /// la casilla a "no completada" si se borra el registro (ej. un clic
+  /// de más marcó una casilla por error).
+  final int? cellIndex;
+
   factory SavingsEntry.fromMap(String id, Map<String, dynamic> map) {
     return SavingsEntry(
       id: id,
@@ -35,6 +41,7 @@ class SavingsEntry {
       date: (map['date'] as Timestamp).toDate(),
       memberUid: map['memberUid'] as String?,
       source: map['source'] as String?,
+      cellIndex: (map['cellIndex'] as num?)?.toInt(),
     );
   }
 
@@ -43,6 +50,7 @@ class SavingsEntry {
         'date': Timestamp.fromDate(date),
         'memberUid': memberUid,
         'source': source,
+        'cellIndex': cellIndex,
       };
 }
 
